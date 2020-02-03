@@ -76,59 +76,72 @@ function allManagers() {
     });
 };
 
-function roleID() {
-    let role = [];
-    connection.query("SELECT * FROM role", function (err, data) {
-        role = data;
-        // console.log(data);
-        return role;
-    });
-    return role;
-};
-
-function managerID() {
-    let manager = [];
-
-    connection.query("SELECT * FROM employee WHERE manager_id IS NULL", function (err, data) {
-        manager = data;
-        return manager;
-    });
-    return manager;
-};
-
 
 function addEmployee() {
-    let role = roleID(); 
-    console.log(role);
-    let manager = managerID();
 
     inquirer.prompt([{
         type: "input",
         message: "What is the employee's first name?",
-        name: "first-name"
+        name: "first_name"
     },
     {
         type: "input",
         message: "What is the employee's last name?",
-        name: "last-name"
+        name: "last_name"
+    },
+    {
+        name: "role",
+        type: "list",
+        choices: function () {
+            let role = [];
+            connection.query("SELECT * FROM role", function (err, data) {
+                if (err) throw err;
+                for (let i = 0; i < data.length; i++) {
+                    role.push(data[i].title);
+                    // console.log(data[i].title);
+                }
+            });
+            return role;
+        },
+        message: "What is the employee's role?"
     },
     {
         type: "list",
-        choices: role,
+        message: "Who is the employee's manager?",
+        choices: function () {
+            let manager = [];
+
+            connection.query("SELECT * FROM employee WHERE manager_id IS NULL", function (err, data) {
+                if (err) throw err;
+                manager = data;
+            });
+            return manager;
+        },
         name: "role"
-    },
-    {
-        type: "list",
-        choices: manager,
-        name: "manager"
-    }]).then(function (answer) {
-        connection.query("INSERT INTO employee(first_name, last_name, role_id, manager_id) VALUES(?, ?, ?, ?)", [answer.first - name, answer.last - name, answer.role, answer.manager], function (err, data) {
-            start();
-        });
+    }
+    ]).then(function (answer) {
+        connection.query("INSERT INTO employee SET ?",
+            {
+                first_name: answer.first_name,
+                last_name: answer.last_name,
+                role_id: answer.role,
+                manager_id: answer.manager
+            }, function (err, data) {
+                if (err) throw err;
+                console.log("Your employee was added successfully!");
+                viewAll();
+                start();
+            });
     })
 };
 
 function removeEmployee() {
+    inquirer.prompt({
+        type: "list",
+        message: "Which employee would you like to remove?",
+        choices: [],
+        name: "remove"
+    })
 
 };
 
