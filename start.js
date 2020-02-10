@@ -13,7 +13,7 @@ const connection = mysql.createConnection({
     user: "root",
 
     // Your password
-    password: "Cagman14",
+    password: "Cagman14B0nghole",
     database: "employee_db"
 });
 
@@ -77,79 +77,179 @@ function allManagers() {
 };
 
 
+function LookupRoles() {
+    return new Promise(function (resolve, reject) {
+        let connectionQuery = "SELECT role.id, role.title, department.name AS department, role.salary FROM role LEFT JOIN department on role.department_id = department.id";
+        connection.query(connectionQuery, function (err, data) {
+            resolve(data);
+        });
+    });
+};
+
+function LookupManager() {
+    return new Promise(function (resolve, reject) {
+        connection.query("SELECT * FROM employee WHERE manager_id is NULL", function (err, data) {
+            resolve(data);
+        });
+    });
+};
+
+function LookupEmployee() {
+    return new Promise(function (resolve, reject) {
+        connection.query("SELECT * FROM employee", function (err, data) {
+            resolve(data);
+        });
+    });
+};
+
+
+
 function addEmployee() {
+    let roles = [];
+    let managers = [];
+    LookupRoles().then(function (data) {
+        roles = data.map(data => {
+            return data.id + " " + data.title
+        });
 
-    inquirer.prompt([{
-        type: "input",
-        message: "What is the employee's first name?",
-        name: "first_name"
-    },
-    {
-        type: "input",
-        message: "What is the employee's last name?",
-        name: "last_name"
-    },
-    {
-        name: "role",
-        type: "list",
-        choices: function () {
-            let role = [];
-            connection.query("SELECT * FROM role", function (err, data) {
-                if (err) throw err;
-                for (let i = 0; i < data.length; i++) {
-                    role.push(data[i].title);
-                    // console.log(data[i].title);
-                }
+        LookupManager().then(function (data) {
+            managers = data.map(data => {
+                return data.id + " " + data.first_name + " " + data.last_name
             });
-            return role;
-        },
-        message: "What is the employee's role?"
-    },
-    {
-        type: "list",
-        message: "Who is the employee's manager?",
-        choices: function () {
-            let manager = [];
 
-            connection.query("SELECT * FROM employee WHERE manager_id IS NULL", function (err, data) {
-                if (err) throw err;
-                manager = data;
-            });
-            return manager;
-        },
-        name: "role"
-    }
-    ]).then(function (answer) {
-        connection.query("INSERT INTO employee SET ?",
+            inquirer.prompt([{
+                type: "input",
+                message: "What is the employee's first name?",
+                name: "first_name"
+            },
             {
-                first_name: answer.first_name,
-                last_name: answer.last_name,
-                role_id: answer.role,
-                manager_id: answer.manager
-            }, function (err, data) {
-                if (err) throw err;
-                console.log("Your employee was added successfully!");
-                viewAll();
-                start();
+                type: "input",
+                message: "What is the employee's last name?",
+                name: "last_name"
+            },
+            {
+
+                type: "list",
+                message: "What is the employee's role?",
+                choices: roles,
+                name: "role"
+            },
+            {
+
+                type: "list",
+                message: "What is the employee's Manager?",
+                choices: managers,
+                name: "manager"
+            }
+            ]).then(function (answer) {
+                connection.query("INSERT INTO employee SET ?",
+                    {
+                        first_name: answer.first_name,
+                        last_name: answer.last_name,
+                        role_id: answer.role.split(" ")[0],
+                        manager_id: answer.manager.split(" ")[0]
+                    }, function (err, data) {
+                        if (err) throw err;
+                        console.log("Your employee was added successfully!");
+                        viewAll();
+                        start();
+                    });
             });
-    })
+        });
+    });
 };
 
 function removeEmployee() {
-    inquirer.prompt({
-        type: "list",
-        message: "Which employee would you like to remove?",
-        choices: [],
-        name: "remove"
-    })
+    let employees = [];
+    LookupEmployee().then(function (data) {
+        employees = data.map(data => {
+            return data.id + " " + data.first_name + " " + data.last_name
+        });
 
+        inquirer.prompt({
+            type: "list",
+            message: "Which employee would you like to remove?",
+            choices: employees,
+            name: "remove"
+        }).then(function (answer) {
+            let connectionQuery = 'DELETE FROM employee WHERE ?';
+            connection.query(connectionQuery,
+                {
+                    id: answer.remove.split(" ")[0]
+                }, function (err, data) {
+                    if (err) throw err;
+                    console.log('Your employee was deleted successfully!');
+                    viewAll();
+                    start();
+                });
+        });
+    });
 };
+
 
 function updateEmployee() {
+    let employees = [];
+    let roles = [];
+    LookupEmployee().then(function (data) {
+        employees = data.map(data => {
+            return data.id + " " + data.first_name + " " + data.last_name
+        });
+        LookupRoles().then(function (data) {
+            roles = data.map(data => {
+                return data.id + " " + data.title
+            });
 
-};
+            inquirer.prompt([
+                {
+                    type: "list",
+                    message: "Which employee would you like to update?",
+                    choices: employees,
+                    name: "update"
+                },
+                {
+                    type: "list",
+                    message: "Which role is the employee in now?",
+                    choices: roles,
+                    name: "roles"
+                }
+            ]).then(function (answer) {
+                let connectionQuery = "UPDATE employees WHERE ?";
+                connection.query(connectionQuery,
+                    {
+                        id: answer.update.split(" ")[0],
+                        role_id: answer.roles.split(" ")[0]
+                    }, function (err, data) {
+                        if (err) throw err;
+                        console.log('Your employee was updated successfully!');
+                        viewAll();
+                        start();
+                    });
+            });
+        });
+    });
+}
 
 function updateManager() {
-
+    let managers = [];
+    LookupManager().then(function (data) {
+        managers = data.map(data => {
+            return data.id + " " + data.first_name + " " + data.last_name
+        });
+        inquirer.prompt({
+            type: "list",
+            message: "Which manager would you like to update?",
+            choices: managers,
+            name: "manager"
+        }).then(function (answer) {
+            connection.query("UPDATE managers WHERE manager_id is NULL",
+                function (err, data) {
+                    if (err) throw err;
+                    console.log('Your employee was updated successfully!');
+                    viewAll();
+                    start();
+                });
+        });
+    });
 };
+
 
