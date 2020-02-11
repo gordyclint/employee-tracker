@@ -45,7 +45,7 @@ function start() {
         } else if (answer.choice === "Update Employee Role") {
             updateEmployee();
         } else if (answer.choice === "Update Employee Manager") {
-            updateManager();
+            updateEmployeeManager();
         } else {
             connection.end();
         };
@@ -53,7 +53,7 @@ function start() {
 };
 
 function viewAll() {
-    connection.query("SELECT * FROM employee", function (err, data) {
+    connection.query("SELECT * FROM employee JOIN role ON (employee.role_id = role.id)", function (err, data) {
         if (err) throw err;
         console.table(data);
         start();
@@ -61,7 +61,7 @@ function viewAll() {
 };
 
 function allDepartments() {
-    connection.query("SELECT * FROM employee", function (err, data) {
+    connection.query("SELECT * FROM employee JOIN department ON (employee.role_id = department.id)", function (err, data) {
         if (err) throw err;
         console.table(data);
         start();
@@ -69,7 +69,7 @@ function allDepartments() {
 };
 
 function allManagers() {
-    connection.query("SELECT * FROM employee WHERE manager_id is NULL", function (err, data) {
+    connection.query("SELECT CONCAT(e.first_name, ' ', e.last_name) AS 'Employee', CONCAT(m.first_name, ' ', m.last_name) AS 'Manager' FROM employee e INNER JOIN employee m ON (e.manager_id = m.id) ORDER BY manager", function (err, data) {
         if (err) throw err;
         console.table(data);
         start();
@@ -213,12 +213,58 @@ function updateEmployee() {
                     name: "roles"
                 }
             ]).then(function (answer) {
-                let connectionQuery = "UPDATE employees WHERE ?";
-                connection.query(connectionQuery,
+                let connectionQuery = "UPDATE employee SET ? WHERE ?";
+                connection.query(connectionQuery, [
+                    {
+                        role_id: answer.roles.split(" ")[0]
+                    },
                     {
                         id: answer.update.split(" ")[0],
-                        role_id: answer.roles.split(" ")[0]
-                    }, function (err, data) {
+                    }
+                ], function (err, data) {
+                    if (err) throw err;
+                    console.log('Your employee was updated successfully!');
+                    viewAll();
+                    start();
+                });
+            });
+        });
+    });
+}
+
+function updateEmployeeManager() {
+    let employees = [];
+    let managers = [];
+    LookupEmployee().then(function (data) {
+        employees = data.map(data => {
+            return data.id + " " + data.first_name + " " + data.last_name
+        });
+        LookupManager().then(function (data) {
+            managers = data.map(data => {
+                return data.id + " " + data.first_name + " " + data.last_name
+            });
+            inquirer.prompt([
+                {
+                    type: "list",
+                    message: "Which employee would you like to update?",
+                    choices: employees,
+                    name: "update"
+                },
+                {
+                    type: "list",
+                    message: "Who is their new manager?",
+                    choices: managers,
+                    name: "manager"
+                }
+            ]).then(function (answer) {
+                connection.query("UPDATE employee SET ? WHERE ?", [
+                    {
+                        manager_id: answer.manager.split(" ")[0]
+                    },
+                    {
+                        id: answer.update.split(" ")[0],
+                    }
+                ],function (err, data) {
                         if (err) throw err;
                         console.log('Your employee was updated successfully!');
                         viewAll();
@@ -228,28 +274,4 @@ function updateEmployee() {
         });
     });
 }
-
-function updateManager() {
-    let managers = [];
-    LookupManager().then(function (data) {
-        managers = data.map(data => {
-            return data.id + " " + data.first_name + " " + data.last_name
-        });
-        inquirer.prompt({
-            type: "list",
-            message: "Which manager would you like to update?",
-            choices: managers,
-            name: "manager"
-        }).then(function (answer) {
-            connection.query("UPDATE managers WHERE manager_id is NULL",
-                function (err, data) {
-                    if (err) throw err;
-                    console.log('Your employee was updated successfully!');
-                    viewAll();
-                    start();
-                });
-        });
-    });
-};
-
 
